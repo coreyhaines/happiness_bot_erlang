@@ -1,18 +1,23 @@
 -module(ack_crash).
+-behaviour(gen_server).
 
--compile(export_all).
+-export([start_link/3, init/1, handle_call/3, terminate/2]).
 
-initialize(SendsTweets, Phrase, Responses) ->
-  spawn(?MODULE, spread_joy, [SendsTweets, Phrase, Responses]).
+start_link(SendsTweets, Phrase, Responses) -> gen_server:start_link(?MODULE, [SendsTweets, Phrase, Responses], []).
+
+init([SendsTweets, Phrase, Responses]) -> {ok, [SendsTweets, Phrase, Responses]}.
 
 
-% process listening to twitter search (for phrase)
-% |
-% spread_joy (when a match comes in)
-% figure out response to send
-% |
-% process that sends a tweet response back to original twitterer
-%
+handle_call({tweet, Twitterer}, From, [SendsTweets, Phrase, []]) ->
+  {stop, normal, "No more responses", [SendsTweets, Phrase, []]};
+
+handle_call({tweet, Twitterer}, From, [SendsTweets, Phrase, Responses]) ->
+  [Response|Rest] = Responses,
+  SendsTweets ! {tweet, Response},
+  {reply, Response, [Phrase, Rest]}.
+
+terminate(Reason, State) ->
+  io:format("Terminating: ~p", [Reason]).
 
 spread_joy(_, _, []) ->
   receive
